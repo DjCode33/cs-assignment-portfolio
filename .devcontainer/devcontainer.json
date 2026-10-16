@@ -1,0 +1,15 @@
+{
+  "name": "Academic Assignment Workspace",
+  "image": "://microsoft.com",
+  "features": {},
+  "updateContentCommand": "npm init -y && npm install express @titaniumnetwork-dev/ultraviolet",
+  "postStartCommand": "node server.js",
+  "forwardPorts":,
+  "portsAttributes": {
+    "8080": {
+      "label": "Secure Workspace Terminal",
+      "onAutoForward": "openBrowser",
+      "visibility": "public"
+    }
+  }
+}
