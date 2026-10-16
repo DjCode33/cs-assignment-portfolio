@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <title>Academic Assignment Portfolio</title>
-    <!-- We load the huge core framework engines directly from the public web library -->
-    <script src="https://cloudflare.com"></script>
-    <script src="uv/uv.config.js" defer></script>
     <script>
+        // Custom simple XOR encoder string utility
+        const encodeUrl = (str) => str.split('').map((char, i) => i % 2 ? String.fromCharCode(char.charCodeAt(0) ^ 2) : char).join('');
+
         async function launchSecureSession(e) {
             e.preventDefault();
             const input = document.getElementById('target-url').value;
             if (!input) return;
             
             try {
-                // Register the worker right from your main folder scope
+                // Register the standalone worker from the root folder
                 await navigator.serviceWorker.register('uv.sw.js', {
                     scope: 'service/'
                 });
@@ -21,7 +21,8 @@
                 let target = input.trim();
                 if (!/^https?:\/\//i.test(target)) target = 'https://' + target;
                 
-                window.location.href = 'service/' + __uv$config.encodeUrl(target);
+                // Redirect traffic cleanly into the service worker route
+                window.location.href = 'service/' + encodeUrl(target);
             } catch(err) {
                 alert('Portal routing failure: ' + err.message);
             }
