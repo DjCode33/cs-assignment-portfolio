@@ -33,7 +33,7 @@ jobs:
             }\
             const token = authHeader.split(" ")[1];\
             const [user, pass] = Buffer.from(token || "", "base64").toString("ascii").split(":");\
-            if (user === "admin" && pass === "pass123") {\
+            if (user === "admin" && pass === "1003") {\
               return next();\
             } else {\
               res.setHeader("WWW-Authenticate", "Basic realm=\\"Secure Workspace\\"");\
