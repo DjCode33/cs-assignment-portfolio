@@ -16,13 +16,11 @@ jobs:
 
       - name: Initialize Independent Packages
         run: |
-          # Create a fresh application footprint natively inside the runner
           npm init -y
           npm install express @titaniumnetwork-dev/ultraviolet
 
       - name: Build Secure Server Logic & Launch
         run: |
-          # Write the self-contained server script directly to the main workspace layer
           cat << 'EOF' > patch.js
           import express from 'express';
           import { createServer } from 'node:http';
@@ -31,9 +29,11 @@ jobs:
           const app = express();
           const server = createServer(app);
           const PORT = 8080;
+          const HOST = '0.0.0.0'; // Absolute network binding required for GitHub Runners
 
-          // Password protection barrier gate logic
+          // Strict password challenge gate
           app.use((req, res, next) => {
+              if (req.path === '/ping' || req.path === '/favicon.ico') return next();
               const authHeader = req.headers.authorization;
               if (!authHeader) {
                   res.setHeader('WWW-Authenticate', 'Basic realm="Secure Workspace"');
@@ -42,8 +42,6 @@ jobs:
               try {
                   const token = authHeader.split(' ');
                   const [user, pass] = Buffer.from(token[1], 'base64').toString('ascii').split(':');
-                  
-                  // Set your access username and password strings here
                   if (user === 'admin' && pass === 'pass123') {
                       return next();
                   }
@@ -52,10 +50,38 @@ jobs:
               return res.status(401).send('Invalid credentials.');
           });
 
-          // Serve the underlying routing bundle assets natively
+          // Serve core script assets natively
           app.use('/uv/', express.static(uvPath));
 
-          // Base interface response landing strip
+          // Inject Ultraviolet frontend configurations dynamically
+          app.get('/uv/uv.config.js', (req, res) => {
+              res.type('application/javascript').send(`
+                  self.__uv$config = {
+                      prefix: '/service/',
+                      bare: 'https://solarplex.xyz',
+                      encodeUrl: Ultraviolet.codec.xor.encode,
+                      decodeUrl: Ultraviolet.codec.xor.decode,
+                      handler: '/uv/uv.handler.js',
+                      bundle: '/uv/uv.bundle.js',
+                      config: '/uv/uv.config.js',
+                      sw: '/uv/uv.sw.js',
+                  };
+              `);
+          });
+
+          app.get('/uv/uv.sw.js', (req, res) => {
+              res.type('application/javascript').send(`
+                  importScripts('/uv/uv.bundle.js');
+                  importScripts('/uv/uv.config.js');
+                  importScripts('/uv/uv.handler.js');
+                  const sw = new UVServiceWorker();
+                  self.addEventListener('fetch', event => {
+                      event.respondWith(sw.fetch(event));
+                  });
+              `);
+          });
+
+          // Interface landing screen
           app.get('/', (req, res) => {
               res.send(`
                   <!DOCTYPE html>
@@ -70,10 +96,14 @@ jobs:
                               const val = document.getElementById('target').value.trim();
                               if(!val) return;
                               
-                              await navigator.serviceWorker.register('/uv/uv.sw.js', { scope: '/service/' });
-                              let target = val;
-                              if (!/^https?:\\/\\//i.test(target)) target = 'https://' + target;
-                              window.location.href = '/service/' + __uv$config.encodeUrl(target);
+                              try {
+                                  await navigator.serviceWorker.register('/uv/uv.sw.js', { scope: '/service/' });
+                                  let target = val;
+                                  if (!/^https?:\\/\\//i.test(target)) target = 'https://' + target;
+                                  window.location.href = '/service/' + __uv$config.encodeUrl(target);
+                              } catch(err) {
+                                  alert('Routing initialization failed: ' + err.message);
+                              }
                           }
                       </script>
                   </head>
@@ -88,13 +118,12 @@ jobs:
               `);
           });
 
-          server.listen(PORT, () => console.log('Engine active on port ' + PORT));
+          server.listen(PORT, HOST, () => console.log('Engine active on ' + HOST + ':' + PORT));
           EOF
           
-          # Force Node to execute modern ES Module imports
           sed -i 's/"type": "commonjs"/"type": "module"/' package.json || true
           
-          # Execute the newly patched server instance loop
+          # Fire up the application loop
           node patch.js &
           sleep 5
           
