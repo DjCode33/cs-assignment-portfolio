@@ -1,6 +1,6 @@
 name: 24/7 Private Proxy Router
 on:
-  workflow_dispatch: # Allows you to turn it on with one click
+  workflow_dispatch:
 
 jobs:
   launch-proxy:
@@ -12,41 +12,61 @@ jobs:
       - name: Setup Node.js Environment
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
-      - name: Download and Pre-Configure Framework
+      - name: Download and Initialize Complete Framework
         run: |
           git clone https://github.com
           cd Ultraviolet-App
           npm install
 
-      - name: Inject Secure Password Challenge Gate
+      - name: Inject Secure Password Gate & Launch Server
         run: |
           cd Ultraviolet-App
-          sed -i '/const app = express();/a \
-          app.use((req, res, next) => {\
-            if (req.path === "/ping") return next();\
-            const authHeader = req.headers.authorization;\
-            if (!authHeader) {\
-              res.setHeader("WWW-Authenticate", "Basic realm=\\"Secure Workspace\\"");\
-              return res.status(401).send("Authentication required.");\
-            }\
-            const token = authHeader.split(" ")[1];\
-            const [user, pass] = Buffer.from(token || "", "base64").toString("ascii").split(":");\
-            if (user === "admin" && pass === "1003") {\
-              return next();\
-            } else {\
-              res.setHeader("WWW-Authenticate", "Basic realm=\\"Secure Workspace\\"");\
-              return res.status(401).send("Invalid credentials.");\
-            }\
-          });' index.js || true
+          
+          # Write a clean, functional runtime lock directly into the application loop
+          cat << 'EOF' > patch.js
+          import express from 'express';
+          import { createServer } from 'node:http';
+          import { uvPath } from '@titaniumnetwork-dev/ultraviolet';
+          import { join } from 'node:path';
 
-      - name: Boot Engine and Broadcast Secure Link
-        run: |
-          cd Ultraviolet-App
-          npm start &
+          const app = express();
+          const server = createServer(app);
+          const PORT = 8080;
+
+          // Password protection barrier gate logic
+          app.use((req, res, next) => {
+              const authHeader = req.headers.authorization;
+              if (!authHeader) {
+                  res.setHeader('WWW-Authenticate', 'Basic realm="Secure Workspace"');
+                  return res.status(401).send('Authentication required.');
+              }
+              try {
+                  const token = authHeader.split(' ')[1];
+                  const [user, pass] = Buffer.from(token, 'base64').toString('ascii').split(':');
+                  
+                  // Set your access username and password strings here
+                  if (user === 'admin' && pass === 'pass123') {
+                      return next();
+                  }
+              } catch(e) {}
+              res.setHeader('WWW-Authenticate', 'Basic realm="Secure Workspace"');
+              return res.status(401).send('Invalid credentials.');
+          });
+
+          // Serve the underlying routing bundle assets natively
+          app.use('/uv/', express.static(uvPath));
+          app.use(express.static(join(process.cwd(), 'public')));
+
+          server.listen(PORT, () => console.log('Engine active on port ' + PORT));
+          EOF
+          
+          # Execute the newly patched server instance loop
+          node patch.js &
           sleep 5
+          
           echo "=================================================="
-          echo "🚀 ACCESS LINK FOR YOU AND YOUR FRIENDS:"
+          echo "🚀 SECURE INTERACTION TUNNEL FOR YOU AND YOUR FRIENDS:"
           npx localtunnel --port 8080
           echo "=================================================="
