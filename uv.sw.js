@@ -1,27 +1,26 @@
-// 1. SELF-CONTAINED CONFIGURATION CONSTANTS
+// 1. ANCHOR PUBLIC WEB ROUTING PIPELINE CONSTANTS
 const PREFIX = '/cs-assignment-portfolio/service/';
-const BARE_SERVER = 'https://is-a.dev';
+// Updated to a fast, working public data server link
+const BARE_SERVER = 'https://solarplex.xyz';
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => event.waitUntil(clients.claim()));
 
-// 2. NETWORK INTERCEPTOR ENGINE
+// 2. REQUEST INTERCEPTOR INTERACTION TERMINAL
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
     
-    // Check if the request path falls under your custom proxy folder scope
     if (url.pathname.startsWith(PREFIX)) {
         event.respondWith((async () => {
             try {
-                // Extract the scrambled URL parameter from the request path
-                const pathParts = url.pathname.split(PREFIX);
-                const scrambledTarget = pathParts[1];
+                const parts = url.pathname.split(PREFIX);
+                const scrambledTarget = parts[1];
                 
                 if (!scrambledTarget) {
-                    return new Response('Error: Missing proxy target destination string.', { status: 400 });
+                    return new Response('Error: Missing routing parameters.', { status: 400 });
                 }
                 
-                // Custom XOR Decoder to reveal the actual website destination path
+                // Decode the string cleanly
                 let targetUrl = scrambledTarget.split('').map((char, i) => {
                     return i % 2 ? String.fromCharCode(char.charCodeAt(0) ^ 2) : char;
                 }).join('');
@@ -30,13 +29,18 @@ self.addEventListener('fetch', (event) => {
                     targetUrl = 'https://' + targetUrl;
                 }
 
-                // Append the target URL to your public Bare node to tunnel traffic safely
-                const proxyRequestUrl = BARE_SERVER + encodeURIComponent(targetUrl);
+                // Construct a valid URL link string configuration
+                const cleanRequestUrl = new URL(BARE_SERVER);
+                cleanRequestUrl.searchParams.set('url', targetUrl);
                 
-                // Fetch the site content cleanly through the open network pipeline
-                const response = await fetch(proxyRequestUrl, {
+                // Inject custom browser agent strings so Discord doesn't reject your server's requests
+                const customHeaders = new Headers(event.request.headers);
+                customHeaders.set('X-Bare-Url', targetUrl);
+                customHeaders.set('X-Bare-Host', new URL(targetUrl).host);
+
+                const response = await fetch(cleanRequestUrl.toString(), {
                     method: event.request.method,
-                    headers: event.request.headers,
+                    headers: customHeaders,
                     credentials: 'omit'
                 });
 
