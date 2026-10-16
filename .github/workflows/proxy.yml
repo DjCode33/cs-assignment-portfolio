@@ -1,0 +1,52 @@
+name: 24/7 Private Proxy Router
+on:
+  workflow_dispatch: # Allows you to turn it on with one click
+
+jobs:
+  launch-proxy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Download and Pre-Configure Framework
+        run: |
+          git clone https://github.com
+          cd Ultraviolet-App
+          npm install
+
+      - name: Inject Secure Password Challenge Gate
+        run: |
+          cd Ultraviolet-App
+          sed -i '/const app = express();/a \
+          app.use((req, res, next) => {\
+            if (req.path === "/ping") return next();\
+            const authHeader = req.headers.authorization;\
+            if (!authHeader) {\
+              res.setHeader("WWW-Authenticate", "Basic realm=\\"Secure Workspace\\"");\
+              return res.status(401).send("Authentication required.");\
+            }\
+            const token = authHeader.split(" ")[1];\
+            const [user, pass] = Buffer.from(token || "", "base64").toString("ascii").split(":");\
+            if (user === "admin" && pass === "pass123") {\
+              return next();\
+            } else {\
+              res.setHeader("WWW-Authenticate", "Basic realm=\\"Secure Workspace\\"");\
+              return res.status(401).send("Invalid credentials.");\
+            }\
+          });' index.js || true
+
+      - name: Boot Engine and Broadcast Secure Link
+        run: |
+          cd Ultraviolet-App
+          npm start &
+          sleep 5
+          echo "=================================================="
+          echo "🚀 ACCESS LINK FOR YOU AND YOUR FRIENDS:"
+          npx localtunnel --port 8080
+          echo "=================================================="
