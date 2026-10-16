@@ -1,0 +1,14 @@
+{
+  "name": "Automated Workspace",
+  "image": "://microsoft.com",
+  "features": {},
+  "updateContentCommand": "git clone https://github.com && cd Ultraviolet-App && npm install",
+  "postStartCommand": "cd Ultraviolet-App && npm start",
+  "forwardPorts":,
+  "portsAttributes": {
+    "8080": {
+      "label": "Proxy Control Panel",
+      "onAutoForward": "openBrowser"
+    }
+  }
+}
