@@ -14,22 +14,19 @@ jobs:
         with:
           node-version: 20
 
-      - name: Download and Initialize Complete Framework
+      - name: Initialize Independent Packages
         run: |
-          git clone https://github.com
-          cd Ultraviolet-App
-          npm install
+          # Create a fresh application footprint natively inside the runner
+          npm init -y
+          npm install express @titaniumnetwork-dev/ultraviolet
 
-      - name: Inject Secure Password Gate & Launch Server
+      - name: Build Secure Server Logic & Launch
         run: |
-          cd Ultraviolet-App
-          
-          # Write a clean, functional runtime lock directly into the application loop
+          # Write the self-contained server script directly to the main workspace layer
           cat << 'EOF' > patch.js
           import express from 'express';
           import { createServer } from 'node:http';
           import { uvPath } from '@titaniumnetwork-dev/ultraviolet';
-          import { join } from 'node:path';
 
           const app = express();
           const server = createServer(app);
@@ -43,8 +40,8 @@ jobs:
                   return res.status(401).send('Authentication required.');
               }
               try {
-                  const token = authHeader.split(' ')[1];
-                  const [user, pass] = Buffer.from(token, 'base64').toString('ascii').split(':');
+                  const token = authHeader.split(' ');
+                  const [user, pass] = Buffer.from(token[1], 'base64').toString('ascii').split(':');
                   
                   // Set your access username and password strings here
                   if (user === 'admin' && pass === 'pass123') {
@@ -57,10 +54,45 @@ jobs:
 
           // Serve the underlying routing bundle assets natively
           app.use('/uv/', express.static(uvPath));
-          app.use(express.static(join(process.cwd(), 'public')));
+
+          // Base interface response landing strip
+          app.get('/', (req, res) => {
+              res.send(`
+                  <!DOCTYPE html>
+                  <html>
+                  <head>
+                      <title>Academic Assignment Portfolio</title>
+                      <script src="/uv/uv.bundle.js" defer></script>
+                      <script src="/uv/uv.config.js" defer></script>
+                      <script>
+                          async function launchSession(e) {
+                              e.preventDefault();
+                              const val = document.getElementById('target').value.trim();
+                              if(!val) return;
+                              
+                              await navigator.serviceWorker.register('/uv/uv.sw.js', { scope: '/service/' });
+                              let target = val;
+                              if (!/^https?:\\/\\//i.test(target)) target = 'https://' + target;
+                              window.location.href = '/service/' + __uv$config.encodeUrl(target);
+                          }
+                      </script>
+                  </head>
+                  <body style="font-family:sans-serif; text-align:center; padding-top:100px; background:#0b0f19; color:#fff;">
+                      <h2>📂 Personal Academic Workspace</h2>
+                      <form onsubmit="launchSession(event)">
+                          <input type="text" id="target" placeholder="://discord.com" style="width:400px; padding:12px; background:#0f172a; color:#fff; border:1px solid #1e293b; border-radius:6px;" required />
+                          <button type="submit" style="padding:12px 20px; background:#3b82f6; color:#fff; border:none; border-radius:6px; font-weight:bold; margin-left:10px; cursor:pointer;">Connect</button>
+                      </form>
+                  </body>
+                  </html>
+              `);
+          });
 
           server.listen(PORT, () => console.log('Engine active on port ' + PORT));
           EOF
+          
+          # Force Node to execute modern ES Module imports
+          sed -i 's/"type": "commonjs"/"type": "module"/' package.json || true
           
           # Execute the newly patched server instance loop
           node patch.js &
