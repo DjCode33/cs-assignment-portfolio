@@ -1,26 +1,39 @@
-// Standalone Service Worker Engine
-importScripts('uv/uv.config.js');
+// 1. SELF-CONTAINED CONFIGURATION CONSTANTS
+const PREFIX = '/cs-assignment-portfolio/service/';
+const BARE_SERVER = 'https://is-a.dev';
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => event.waitUntil(clients.claim()));
 
+// 2. NETWORK INTERCEPTOR ENGINE
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
     
-    // Check if the browser is requesting a proxied asset path
-    if (url.pathname.includes('/service/')) {
+    // Check if the request path falls under your custom proxy folder scope
+    if (url.pathname.startsWith(PREFIX)) {
         event.respondWith((async () => {
             try {
-                // Scrape path parameters dynamically
-                const targetUrlStr = url.pathname.split('/service/')[1];
-                if (!targetUrlStr) return new Response('Missing proxy destination parameters', { status: 400 });
+                // Extract the scrambled URL parameter from the request path
+                const pathParts = url.pathname.split(PREFIX);
+                const scrambledTarget = pathParts[1];
                 
-                // XOR Decoder logic to translate scrambled string parameter tags
-                let targetUrl = targetUrlStr.split('').map((char, i) => i % 2 ? String.fromCharCode(char.charCodeAt(0) ^ 2) : char).join('');
-                if (!/^https?:\/\//i.test(targetUrl)) targetUrl = 'https://' + targetUrl;
+                if (!scrambledTarget) {
+                    return new Response('Error: Missing proxy target destination string.', { status: 400 });
+                }
+                
+                // Custom XOR Decoder to reveal the actual website destination path
+                let targetUrl = scrambledTarget.split('').map((char, i) => {
+                    return i % 2 ? String.fromCharCode(char.charCodeAt(0) ^ 2) : char;
+                }).join('');
+                
+                if (!/^https?:\/\//i.test(targetUrl)) {
+                    targetUrl = 'https://' + targetUrl;
+                }
 
-                // Send request parameters straight through the public traffic proxy node
-                const proxyRequestUrl = 'https://is-a.dev' + encodeURIComponent(targetUrl);
+                // Append the target URL to your public Bare node to tunnel traffic safely
+                const proxyRequestUrl = BARE_SERVER + encodeURIComponent(targetUrl);
+                
+                // Fetch the site content cleanly through the open network pipeline
                 const response = await fetch(proxyRequestUrl, {
                     method: event.request.method,
                     headers: event.request.headers,
@@ -29,7 +42,7 @@ self.addEventListener('fetch', (event) => {
 
                 return response;
             } catch (err) {
-                return new Response('Proxy routing engine failure: ' + err.message, { status: 500 });
+                return new Response('Proxy routing pipeline error: ' + err.message, { status: 500 });
             }
         })());
     }
