@@ -100,5 +100,5 @@ jobs:
           
           echo "=================================================="
           echo "🚀 SECURE INTERACTION TUNNEL FOR YOU AND YOUR FRIENDS:"
-          npx localtunnel --port 8080
+          npx localtunnel --port 8080 --host http://loca.lt --yes
           echo "=================================================="
