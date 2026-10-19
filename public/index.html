@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Academic Assignment Portfolio</title>
+    <script>
+        let isAuthenticated = false;
+        let bareMuxConnection;
+
+        function encodeUrl(value) {
+            let encoded = '';
+            for (let index = 0; index < value.length; index++) {
+                encoded += index % 2
+                    ? String.fromCharCode(value.charCodeAt(index) ^ 2)
+                    : value[index];
+            }
+            return encodeURIComponent(encoded);
+        }
+
+        function checkCredentials(e) {
+            e.preventDefault();
+            const user = document.getElementById('username').value.trim();
+            const pass = document.getElementById('password').value.trim();
+
+            if (user === 'admin' && pass === 'pass123') {
+                isAuthenticated = true;
+                document.getElementById('login-box').style.display = 'none';
+                document.getElementById('proxy-box').style.display = 'block';
+            } else {
+                alert('Invalid credentials. Access denied.');
+            }
+        }
+
+        function setConnectionStatus(message) {
+            document.getElementById('connection-status').textContent = message;
+        }
+
+        function waitForWorkerActivation(registration) {
+            const worker = registration.installing || registration.waiting || registration.active;
+            if (!worker) return Promise.reject(new Error('Proxy worker did not start.'));
+            if (worker.state === 'activated') return Promise.resolve();
+
+            return new Promise((resolve, reject) => {
+                const checkState = () => {
+                    if (worker.state === 'activated') {
+                        worker.removeEventListener('statechange', checkState);
+                        resolve();
+                    } else if (worker.state === 'redundant') {
+                        worker.removeEventListener('statechange', checkState);
+                        reject(new Error('Proxy worker installation failed.'));
+                    }
+                };
+
+                worker.addEventListener('statechange', checkState);
+                checkState();
+            });
+        }
+
+        async function initializeTransport() {
+            if (bareMuxConnection) return;
+
+            const { BareMuxConnection } = await import('/bare-mux/index.mjs');
+            const connection = new BareMuxConnection('/bare-mux/worker.js');
+            const websocketProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            await connection.setTransport('/epoxy/index.mjs', [{
+                wisp: `${websocketProtocol}//${location.host}/wisp/`,
+            }]);
+            bareMuxConnection = connection;
+        }
+
+        async function checkDailyCap() {
+            const response = await fetch('/api/proxy-usage', { cache: 'no-store' });
+            if (!response.ok) throw new Error('Could not check the shared daily data cap.');
+
+            const usage = await response.json();
+            if (!usage.capReached) return true;
+
+            const message = `Shared 2 GiB daily data cap reached. Usage resets at ${usage.resetTime}; proxy availability follows the Codespace schedule.`;
+            setConnectionStatus(message);
+            alert(message);
+            return false;
+        }
+
+        async function launchSession(e) {
+            e.preventDefault();
+            if (!isAuthenticated) return alert('Please log in first.');
+            
+            const val = document.getElementById('target').value.trim();
+            if(!val) return;
+
+            const proxyTab = window.open('about:blank', '_blank');
+            if (!proxyTab) {
+                setConnectionStatus('Allow pop-ups to open the proxied site in a new tab.');
+                return;
+            }
+            proxyTab.opener = null;
+            
+            try {
+                if (!await checkDailyCap()) {
+                    proxyTab.close();
+                    return;
+                }
+                setConnectionStatus('Initializing network transport...');
+                await initializeTransport();
+                setConnectionStatus('Registering proxy worker...');
+                const uvConfig = {
+                    prefix: '/service/',
+                    sw: '/uv.sw.js',
+                    encodeUrl,
+                };
+
+                const registration = await navigator.serviceWorker.register(uvConfig.sw, { scope: uvConfig.prefix });
+                setConnectionStatus('Waiting for proxy worker...');
+                await waitForWorkerActivation(registration);
+                let target = val;
+                if (!/^https?:\/\//i.test(target)) target = 'https://' + target;
+                
+                setConnectionStatus('Opening ' + target + '...');
+                proxyTab.location.href = uvConfig.prefix + uvConfig.encodeUrl(target);
+            } catch(err) {
+                proxyTab.close();
+                setConnectionStatus('Connection failed: ' + err.message);
+                alert('Routing initialization failed: ' + err.message);
+            }
+        }
+    </script>
+</head>
+<body style="font-family:sans-serif; text-align:center; padding-top:100px; background:#0b0f19; color:#fff;">
+    <h2>📂 Personal Academic Workspace</h2>
+    <p style="color:#64748b;">Experimental web proxy workspace</p>
+
+    <section role="note" aria-labelledby="proxy-warning-title" style="max-width:620px; margin:24px auto; padding:16px; border:1px solid #b45309; color:#fde68a; text-align:left;">
+        <strong id="proxy-warning-title">Safety warning</strong>
+        <p>Do not enter real account passwords, payment details, or other sensitive information on proxied websites. Proxy pages may be modified or expose information you enter.</p>
+        <p>Use this experimental service at your own risk. The operator is not responsible for loss or damage arising from its use, to the extent permitted by law. This notice does not remove rights that cannot legally be waived.</p>
+    </section>
+    
+    <!-- LOGIN INTERACTION BLOCK -->
+    <div id="login-box" style="margin-top:40px;">
+        <form onsubmit="checkCredentials(event)">
+            <label style="display:block; max-width:440px; margin:0 auto 20px; color:#e2e8f0;">
+                <input type="checkbox" id="proxy-warning-agreement" required />
+                I have read this warning and agree not to enter real account credentials or sensitive information.
+            </label>
+            <input type="text" id="username" placeholder="Username" style="width:200px; padding:12px; background:#0f172a; color:#fff; border:1px solid #1e293b; border-radius:6px; margin-right:10px;" required /><br><br>
+            <input type="password" id="password" placeholder="Password" style="width:200px; padding:12px; background:#0f172a; color:#fff; border:1px solid #1e293b; border-radius:6px; margin-right:10px;" required /><br><br>
+            <button type="submit" style="padding:12px 25px; background:#10b981; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">Unlock Workspace</button>
+        </form>
+    </div>
+
+    <!-- PROXY INTERFACES LAUNCHER BLOCK -->
+    <div id="proxy-box" style="display:none; margin-top:40px;">
+        <form onsubmit="launchSession(event)">
+            <input type="text" id="target" placeholder="://discord.com" style="width:400px; padding:12px; background:#0f172a; color:#fff; border:1px solid #1e293b; border-radius:6px;" required />
+            <button type="submit" style="padding:12px 20px; background:#3b82f6; color:#fff; border:none; border-radius:6px; font-weight:bold; margin-left:10px; cursor:pointer;">Connect</button>
+        </form>
+        <p id="connection-status" role="status" aria-live="polite"></p>
+    </div>
+</body>
+</html>

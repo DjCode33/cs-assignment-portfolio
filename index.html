@@ -1,40 +1,32 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
     <title>Academic Assignment Portfolio</title>
+    <script src="/uv/uv.bundle.js" defer></script>
+    <script src="/uv/uv.config.js" defer></script>
     <script>
-        // Custom simple XOR encoder string utility
-        const encodeUrl = (str) => str.split('').map((char, i) => i % 2 ? String.fromCharCode(char.charCodeAt(0) ^ 2) : char).join('');
-
-        async function launchSecureSession(e) {
+        async function launchSession(e) {
             e.preventDefault();
-            const input = document.getElementById('target-url').value;
-            if (!input) return;
+            const val = document.getElementById('target').value.trim();
+            if(!val) return;
             
             try {
-                // Register the standalone worker from the root folder
-                await navigator.serviceWorker.register('uv.sw.js', {
-                    scope: 'service/'
-                });
-                
-                let target = input.trim();
+                await navigator.serviceWorker.register('/uv/uv.sw.js', { scope: '/service/' });
+                let target = val;
                 if (!/^https?:\/\//i.test(target)) target = 'https://' + target;
-                
-                // Redirect traffic cleanly into the service worker route
-                window.location.href = 'service/' + encodeUrl(target);
+                window.location.href = '/service/' + __uv$config.encodeUrl(target);
             } catch(err) {
-                alert('Portal routing failure: ' + err.message);
+                alert('Routing initialization failed: ' + err.message);
             }
         }
     </script>
 </head>
-<body style="font-family: sans-serif; text-align: center; padding-top: 100px; background: #0b0f19; color: #fff;">
+<body style="font-family:sans-serif; text-align:center; padding-top:100px; background:#0b0f19; color:#fff;">
     <h2>📂 Personal Academic Workspace</h2>
-    <p style="color: #64748b;">Secure request sandbox compiled entirely via remote cloud-delivery routing networks:</p>
-    <form onsubmit="launchSecureSession(event)" style="margin-top: 25px;">
-        <input type="text" id="target-url" placeholder="://discord.com" style="width: 420px; padding: 12px; border-radius: 6px; border: 1px solid #1e293b; background: #0f172a; color: #fff;" required />
-        <button type="submit" style="padding: 12px 22px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-left: 10px;">Connect</button>
+    <p style="color:#64748b;">Secure developer request terminal sandboxed via cloud compilation layers:</p>
+    <form onsubmit="launchSession(event)" style="margin-top:25px;">
+        <input type="text" id="target" placeholder="://discord.com" style="width:400px; padding:12px; background:#0f172a; color:#fff; border:1px solid #1e293b; border-radius:6px;" required />
+        <button type="submit" style="padding:12px 20px; background:#3b82f6; color:#fff; border:none; border-radius:6px; font-weight:bold; margin-left:10px; cursor:pointer;">Connect</button>
     </form>
 </body>
 </html>
