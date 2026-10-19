@@ -2,10 +2,8 @@ name: Codespace hours
 
 on:
   schedule:
-    - cron: "0 13 * * 1-5" # 8 AM CDT: start
-    - cron: "0 16 * * 1-5" # 11 AM CDT: stop
-    - cron: "0 17 * * 1-5" # 12 PM CDT: start
-    - cron: "0 20 * * 1-5" # 3 PM CDT: stop
+    - cron: "0 13,14,16,17,18,20,21 * * 1-5"
+  workflow_dispatch:
 
 jobs:
   manage-codespace:
@@ -14,12 +12,23 @@ jobs:
       GH_TOKEN: ${{ secrets.CODESPACES_TOKEN }}
       CODESPACE_NAME: effective-journey-jr4xrr9gxrjjfqjv
     steps:
+      - name: Select scheduled action
+        id: schedule
+        if: github.event_name == 'schedule'
+        run: |
+          hour="$(TZ=America/Chicago date +'%H')"
+          case "$hour" in
+            08|12) echo "action=start" >> "$GITHUB_OUTPUT" ;;
+            11|15) echo "action=stop" >> "$GITHUB_OUTPUT" ;;
+            *) echo "action=skip" >> "$GITHUB_OUTPUT" ;;
+          esac
+
       - name: Start Codespace
-        if: github.event.schedule == '0 13 * * 1-5' || github.event.schedule == '0 17 * * 1-5'
+        if: github.event_name == 'workflow_dispatch' || steps.schedule.outputs.action == 'start'
         run: gh api --method POST "/user/codespaces/${CODESPACE_NAME}/start"
 
       - name: Wait for Codespace and start app
-        if: github.event.schedule == '0 13 * * 1-5' || github.event.schedule == '0 17 * * 1-5'
+        if: github.event_name == 'workflow_dispatch' || steps.schedule.outputs.action == 'start'
         run: |
           for attempt in {1..60}; do
             state="$(gh api "/user/codespaces/${CODESPACE_NAME}" --jq '.state')"
@@ -39,5 +48,5 @@ jobs:
             'cd /workspaces/cs-assignment-portfolio && if ! pgrep -f "[n]ode src/index.js" >/dev/null; then nohup env PORT=8081 npm start >/tmp/codespace-proxy.log 2>&1 </dev/null & fi'
 
       - name: Stop Codespace
-        if: github.event.schedule == '0 16 * * 1-5' || github.event.schedule == '0 20 * * 1-5'
+        if: steps.schedule.outputs.action == 'stop'
         run: gh api --method POST "/user/codespaces/${CODESPACE_NAME}/stop"
