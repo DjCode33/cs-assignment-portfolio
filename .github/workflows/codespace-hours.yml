@@ -2,7 +2,13 @@ name: Codespace hours
 
 on:
   schedule:
-    - cron: "0 13,14,16,17,18,20,21 * * 1-5"
+    - cron: "5 13 * * 1-5" # 8:05 AM CDT: start
+    - cron: "5 14 * * 1-5" # 8:05 AM CST: start
+    - cron: "5 16 * * 1-5" # 11:05 AM CDT: stop
+    - cron: "5 17 * * 1-5" # Noon CDT start / 11:05 AM CST stop
+    - cron: "5 18 * * 1-5" # Noon:05 PM CST: start
+    - cron: "5 20 * * 1-5" # 3:05 PM CDT: stop
+    - cron: "5 21 * * 1-5" # 3:05 PM CST: stop
   workflow_dispatch:
 
 jobs:
@@ -11,15 +17,18 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.CODESPACES_TOKEN }}
       CODESPACE_NAME: effective-journey-jr4xrr9gxrjjfqjv
+      SCHEDULE_CRON: ${{ github.event.schedule }}
     steps:
       - name: Select scheduled action
         id: schedule
         if: github.event_name == 'schedule'
         run: |
-          hour="$(TZ=America/Chicago date +'%H')"
-          case "$hour" in
-            08|12) echo "action=start" >> "$GITHUB_OUTPUT" ;;
-            11|15) echo "action=stop" >> "$GITHUB_OUTPUT" ;;
+          zone="$(TZ=America/Chicago date +'%Z')"
+          case "$SCHEDULE_CRON:$zone" in
+            '5 13 * * 1-5:CDT'|'5 17 * * 1-5:CDT'|'5 14 * * 1-5:CST'|'5 18 * * 1-5:CST')
+              echo "action=start" >> "$GITHUB_OUTPUT" ;;
+            '5 16 * * 1-5:CDT'|'5 17 * * 1-5:CST'|'5 20 * * 1-5:CDT'|'5 21 * * 1-5:CST')
+              echo "action=stop" >> "$GITHUB_OUTPUT" ;;
             *) echo "action=skip" >> "$GITHUB_OUTPUT" ;;
           esac
 
