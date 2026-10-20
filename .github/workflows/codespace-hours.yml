@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.CODESPACES_TOKEN }}
-      CODESPACE_NAME: effective-journey-jr4xrr9gxrjjfqjv
+      CODESPACE_NAME: friendly-adventure-6vrjvvwpjrgph9gx
       SCHEDULE_CRON: ${{ github.event.schedule }}
     steps:
       - name: Select scheduled action
