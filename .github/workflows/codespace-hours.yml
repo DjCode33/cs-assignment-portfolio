@@ -56,6 +56,10 @@ jobs:
           gh codespace ssh --codespace "$CODESPACE_NAME" -- \
             'cd /workspaces/cs-assignment-portfolio && if ! pgrep -f "[n]ode src/index.js" >/dev/null; then nohup env PORT=8081 npm start >/tmp/codespace-proxy.log 2>&1 </dev/null & fi && for attempt in {1..30}; do if curl --fail --silent http://127.0.0.1:8081/api/proxy-usage >/dev/null; then exit 0; fi; sleep 2; done; echo "App did not respond on port 8081; server log follows:"; cat /tmp/codespace-proxy.log; exit 1'
 
+      - name: Make proxy port public
+        if: github.event_name == 'workflow_dispatch' || steps.schedule.outputs.action == 'start'
+        run: gh codespace ports visibility 8081:public --codespace "$CODESPACE_NAME"
+
       - name: Stop Codespace
         if: steps.schedule.outputs.action == 'stop'
         run: gh api --method POST "/user/codespaces/${CODESPACE_NAME}/stop"
