@@ -36,6 +36,20 @@ jobs:
         if: github.event_name == 'workflow_dispatch' || steps.schedule.outputs.action == 'start'
         run: gh api --method POST "/user/codespaces/${CODESPACE_NAME}/start"
 
+      - name: Wait for Codespace
+        if: github.event_name == 'workflow_dispatch' || steps.schedule.outputs.action == 'start'
+        run: |
+          for attempt in {1..40}; do
+            state="$(gh api "/user/codespaces/${CODESPACE_NAME}" --jq '.state')"
+            echo "Codespace state: $state"
+            if [ "$state" = "Available" ]; then
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Codespace did not become available after 10 minutes."
+          exit 1
+
       - name: Connect to Codespace and start app
         if: github.event_name == 'workflow_dispatch' || steps.schedule.outputs.action == 'start'
         run: |
