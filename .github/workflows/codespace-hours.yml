@@ -27,25 +27,11 @@ jobs:
         if: github.event_name == 'workflow_dispatch' || steps.schedule.outputs.action == 'start'
         run: gh api --method POST "/user/codespaces/${CODESPACE_NAME}/start"
 
-      - name: Wait for Codespace and start app
+      - name: Connect to Codespace and start app
         if: github.event_name == 'workflow_dispatch' || steps.schedule.outputs.action == 'start'
         run: |
-          for attempt in {1..60}; do
-            state="$(gh api "/user/codespaces/${CODESPACE_NAME}" --jq '.state')"
-            if [[ "$state" == "Available" ]]; then
-              break
-            fi
-            echo "Codespace state: $state; waiting for it to start."
-            sleep 10
-          done
-
-          if [[ "$state" != "Available" ]]; then
-            echo "Codespace did not become available in time."
-            exit 1
-          fi
-
-          gh codespace ssh --codespace "$CODESPACE_NAME" -- bash -lc \
-            'cd /workspaces/cs-assignment-portfolio && if ! pgrep -f "[n]ode src/index.js" >/dev/null; then nohup env PORT=8081 npm start >/tmp/codespace-proxy.log 2>&1 </dev/null & fi'
+          gh codespace ssh --codespace "$CODESPACE_NAME" -- \
+            'cd /workspaces/cs-assignment-portfolio && if ! pgrep -f "[n]ode src/index.js" >/dev/null; then nohup env PORT=8081 npm start >/tmp/codespace-proxy.log 2>&1 </dev/null & fi && for attempt in {1..30}; do if curl --fail --silent http://127.0.0.1:8081/api/proxy-usage >/dev/null; then exit 0; fi; sleep 2; done; echo "App did not respond on port 8081; server log follows:"; cat /tmp/codespace-proxy.log; exit 1'
 
       - name: Stop Codespace
         if: steps.schedule.outputs.action == 'stop'
