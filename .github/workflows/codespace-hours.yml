@@ -58,7 +58,16 @@ jobs:
 
       - name: Make proxy port public
         if: github.event_name == 'workflow_dispatch' || steps.schedule.outputs.action == 'start'
-        run: gh codespace ports visibility 8081:public --codespace "$CODESPACE_NAME"
+        run: |
+          for attempt in {1..6}; do
+            if gh codespace ports visibility 8081:public --codespace "$CODESPACE_NAME"; then
+              exit 0
+            fi
+            echo "Port publication attempt $attempt failed; retrying in 5 seconds."
+            sleep 5
+          done
+          echo "Could not make proxy port 8081 public."
+          exit 1
 
       - name: Stop Codespace
         if: steps.schedule.outputs.action == 'stop'
