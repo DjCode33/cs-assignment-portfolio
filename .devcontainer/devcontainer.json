@@ -9,5 +9,12 @@
       "onAutoForward": "silent"
     }
   },
-  "postCreateCommand": "npm ci"
+  "postCreateCommand": "corepack pnpm install --frozen-lockfile",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "npm.packageManager": "pnpm"
+      }
+    }
+  }
 }
