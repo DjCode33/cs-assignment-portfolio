@@ -1,11 +1,6 @@
 {
   "name": "CS Assignment Portfolio",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm",
-  "features": {
-    "ghcr.io/devcontainers/features/sshd:1": {
-      "version": "latest"
-    }
-  },
   "forwardPorts": [8081],
   "portsAttributes": {
     "8081": {
@@ -15,6 +10,7 @@
     }
   },
   "postCreateCommand": "corepack pnpm install --frozen-lockfile",
+  "postStartCommand": "nohup env PORT=8081 npm start >/tmp/codespace-proxy.log 2>&1 </dev/null &",
   "customizations": {
     "vscode": {
       "settings": {
