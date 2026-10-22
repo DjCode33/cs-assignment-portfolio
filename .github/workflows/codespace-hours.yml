@@ -72,14 +72,28 @@ jobs:
               exit 0
             fi
 
-            if [[ -n "$port_visibility" ]] && gh codespace ports visibility 8081:public --codespace "$CODESPACE_NAME"; then
+            if ! gh codespace ports visibility 8081:public --codespace "$CODESPACE_NAME"; then
+              echo "Could not publish port 8081 on attempt $attempt; retrying in 5 seconds."
+              sleep 5
+              continue
+            fi
+
+            ports="$(gh codespace ports --codespace "$CODESPACE_NAME" --json sourcePort,visibility 2>&1)" || {
+              echo "Could not verify port visibility on attempt $attempt: $ports"
+              sleep 5
+              continue
+            }
+            port_visibility="$(jq -r '.[] | select(.sourcePort == 8081) | .visibility' <<< "$ports")"
+            if [[ "$port_visibility" == "public" ]]; then
+              echo "Proxy port 8081 is public."
               exit 0
             fi
 
-            echo "Port 8081 is not public yet (attempt $attempt); retrying in 5 seconds."
+            echo "Port 8081 is still not public (attempt $attempt); retrying in 5 seconds."
             sleep 5
           done
-          echo "::warning::Could not make proxy port 8081 public; the proxy is running, but the port may remain private."
+          echo "Could not make proxy port 8081 public."
+          exit 1
 
       - name: Stop Codespace
         if: steps.schedule.outputs.action == 'stop'

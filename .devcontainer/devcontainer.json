@@ -1,6 +1,11 @@
 {
   "name": "CS Assignment Portfolio",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/sshd:1": {
+      "version": "latest"
+    }
+  },
   "forwardPorts": [8081],
   "portsAttributes": {
     "8081": {
