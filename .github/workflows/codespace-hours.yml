@@ -50,12 +50,6 @@ jobs:
           echo "Codespace did not become available after 10 minutes."
           exit 1
 
-      - name: Start app and verify it responds
-        if: github.event_name == 'workflow_dispatch' || steps.schedule.outputs.action == 'start'
-        run: |
-          gh codespace ssh --codespace "$CODESPACE_NAME" -- \
-            'cd /workspaces/cs-assignment-portfolio && if ! pgrep -f "[n]ode src/index.js" >/dev/null; then nohup env PORT=8081 npm start >/tmp/codespace-proxy.log 2>&1 </dev/null & fi && for attempt in {1..30}; do if curl --fail --silent http://127.0.0.1:8081/api/proxy-usage >/dev/null; then echo "Proxy app is responding on port 8081."; exit 0; fi; sleep 2; done; echo "Proxy app did not respond; server log follows:"; cat /tmp/codespace-proxy.log; exit 1'
-
       - name: Make proxy port public
         if: github.event_name == 'workflow_dispatch' || steps.schedule.outputs.action == 'start'
         run: |
@@ -99,6 +93,27 @@ jobs:
             sleep 5
           done
           echo "Could not make proxy port 8081 public."
+          exit 1
+
+      - name: Verify proxy app
+        if: github.event_name == 'workflow_dispatch' || steps.schedule.outputs.action == 'start'
+        run: |
+          browse_url="$(gh codespace ports --codespace "$CODESPACE_NAME" --json sourcePort,browseUrl | jq -r '.[] | select(.sourcePort == 8081) | .browseUrl')"
+          if [[ -z "$browse_url" || "$browse_url" == "null" ]]; then
+            echo "Could not find a browse URL for port 8081."
+            exit 1
+          fi
+
+          for attempt in {1..12}; do
+            if curl --fail --silent "${browse_url}/api/proxy-usage" >/dev/null; then
+              echo "Proxy app is responding at ${browse_url}."
+              exit 0
+            fi
+            echo "Proxy app is not responding yet (attempt ${attempt}); retrying."
+            sleep 5
+          done
+
+          echo "Proxy app did not respond through the forwarded URL."
           exit 1
 
       - name: Stop Codespace
